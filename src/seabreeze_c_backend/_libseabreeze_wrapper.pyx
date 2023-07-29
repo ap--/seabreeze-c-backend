@@ -3,11 +3,12 @@
 Author: Andreas Poehlmann
 
 """
-cimport seabreeze_c_backend._libseabreeze as csb
 cimport cython
 from cpython.mem cimport PyMem_Free
 from cpython.mem cimport PyMem_Malloc
 from libcpp cimport bool as bool_t
+
+cimport seabreeze_c_backend._libseabreeze as csb
 
 import weakref
 

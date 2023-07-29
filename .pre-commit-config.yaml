@@ -1,7 +1,7 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 default_language_version:
-    python: python3.10
+    python: python3.11
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
@@ -31,10 +31,9 @@ repos:
     rev: 'v1.4.1'
     hooks:
     -   id: mypy
-        additional_dependencies: [numpy<1.22, pyusb>=1.0]
         exclude: "^(build|docs|tests|dev|setup.py)"
 -   repo: https://github.com/asottile/pyupgrade
     rev: v3.9.0
     hooks:
     -   id: pyupgrade
-        args: [--py37-plus]
+        args: [--py38-plus]

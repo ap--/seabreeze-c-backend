@@ -87,7 +87,7 @@ if strtobool(os.getenv("CSEABREEZE_ABI3", "false")):
     # this will only work once more numpy support lands in the limited api
     compile_opts["py_limited_api"] = True
     compile_opts["define_macros"].extend(
-        [("CYTHON_LIMITED_API", "1"), ("Py_LIMITED_API", 0x030b0000)]
+        [("CYTHON_LIMITED_API", "1"), ("Py_LIMITED_API", 0x030B0000)]
     )
 
 # define extension
@@ -98,9 +98,7 @@ libseabreeze = Extension(
     **compile_opts,
 )
 
-building_sphinx_documentation = bool(
-    strtobool(os.environ.get("READTHEDOCS", "false"))
-)
+building_sphinx_documentation = bool(strtobool(os.environ.get("READTHEDOCS", "false")))
 libseabreeze.cython_directives = {
     "binding": building_sphinx_documentation,  # fix class method parameters for sphinx
     "embedsignature": not building_sphinx_documentation,  # add function signature to docstring for ipython
@@ -170,20 +168,15 @@ setup(
         "setuptools_scm",
         "pkgconfig",
     ],
-    install_requires=[
-        "numpy>=1.21",
-    ],
+    install_requires=[],
     extras_require={},
     python_requires=">=3.8",
     cmdclass={"build_ext": sb_build_ext},
     ext_modules=extensions,
     packages=find_packages(where="src"),
-    package_data={"seabreeze": ["py.typed"]},
     package_dir={"": "src"},
     entry_points={},
-    description=(
-        "Seabreeze C Backend. Use together with `seabreeze` package."
-    ),
+    description=("Seabreeze C Backend. Use together with `seabreeze` package."),
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     classifiers=[
