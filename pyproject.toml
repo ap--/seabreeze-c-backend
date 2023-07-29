@@ -64,3 +64,6 @@ exclude = """
 [[tool.mypy.overrides]]
 module = "seabreeze_c_backend._libseabreeze_wrapper"
 ignore_missing_imports = true
+
+[tool.cython-lint]
+ignore = ['E501']
