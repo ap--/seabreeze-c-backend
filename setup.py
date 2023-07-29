@@ -76,7 +76,7 @@ else:
         compile_opts["extra_compile_args"] = ["-g0"]
 
 # Collect all source files for cseabreeze backend
-sources = ["src/seabreeze/cseabreeze/c_seabreeze_wrapper.pyx"]
+sources = ["src/seabreeze_c_backend/_libseabreeze_wrapper.pyx"]
 for root, subdirs, fns in os.walk("src/libseabreeze/src"):
     subdirs[:] = (d for d in subdirs if d not in ignore_subdirs)
     sources.extend(os.path.join(root, fn) for fn in fns)
@@ -92,7 +92,7 @@ if strtobool(os.getenv("CSEABREEZE_ABI3", "false")):
 
 # define extension
 libseabreeze = Extension(
-    "seabreeze.cseabreeze._wrapper",
+    "seabreeze_c_backend._libseabreeze_wrapper",
     language="c++",
     sources=[os.path.relpath(s) for s in sources],
     **compile_opts,
@@ -159,7 +159,7 @@ setup(
     url="https://github.com/ap--/seabreeze-c-backend",
     license="MIT",
     use_scm_version={
-        "write_to": "src/seabreeze/_version.py",
+        "write_to": "src/seabreeze_c_backend/_version.py",
         "write_to_template": '__version__ = "{version}"',
         "version_scheme": "post-release",
     },

@@ -3,7 +3,7 @@
 Author: Andreas Poehlmann
 
 """
-cimport c_seabreeze as csb
+cimport seabreeze_c_backend._libseabreeze as csb
 cimport cython
 from cpython.mem cimport PyMem_Free
 from cpython.mem cimport PyMem_Malloc

@@ -1,0 +1,17 @@
+*.so
+*.tar.bz2
+*.pyc
+.DS_Store
+.eggs
+.idea
+.cache/*
+build/*
+dist/*
+venv/*
+.venv/*
+venv*/*
+docs/build/*
+pip-wheel-metadata/*
+src/seabreeze_c_backend/_libseabreeze_wrapper.cpp
+src/seabreeze_c_backend.egg-info
+src/seabreeze_c_backend/_version.py
