@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "setuptools>=18.0",
-    "cython @ git+https://github.com/ap--/cython.git@compile-seabreeze#egg=cython",
+    # "cython @ git+https://github.com/ap--/cython.git@compile-seabreeze#egg=cython",
     "wheel>=0.31.0",
     "setuptools_scm",
     "pkgconfig"  # this should be Linux only, but PEP508 is not supported yet in pyproject.toml

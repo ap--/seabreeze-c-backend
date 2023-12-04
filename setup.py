@@ -75,7 +75,8 @@ else:
         compile_opts["extra_compile_args"] = ["-g0"]
 
 # Collect all source files for cseabreeze backend
-sources = ["src/seabreeze_c_backend/_libseabreeze_wrapper.pyx"]
+# sources = ["src/seabreeze_c_backend/_libseabreeze_wrapper.pyx"]
+sources = ["src/seabreeze_c_backend/_libseabreeze_wrapper.cpp"]
 for root, subdirs, fns in os.walk("src/libseabreeze/src"):
     subdirs[:] = (d for d in subdirs if d not in ignore_subdirs)
     sources.extend(os.path.join(root, fn) for fn in fns)
