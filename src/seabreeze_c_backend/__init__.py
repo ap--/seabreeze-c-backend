@@ -1,6 +1,4 @@
-"""This is a wrapper for the c-implementation of the seabreeze-library
-
-"""
+"""Wrapper for the C-implementation of the seabreeze-library"""
 from seabreeze_c_backend._libseabreeze_wrapper import (
     SeaBreezeAcquisitionDelayFeature,
     SeaBreezeAPI,
