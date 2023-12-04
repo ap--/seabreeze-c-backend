@@ -83,11 +83,13 @@ for root, subdirs, fns in os.walk("src/libseabreeze/src"):
 # Add seabreeze include dirs
 compile_opts["include_dirs"].append(os.path.relpath("src/libseabreeze/include"))
 
-if strtobool(os.getenv("CSEABREEZE_ABI3", "false")):
+if strtobool(os.getenv("NO_CSEABREEZE_ABI3", "false")):
+    pass
+else:
     # this will only work once more numpy support lands in the limited api
     compile_opts["py_limited_api"] = True
     compile_opts["define_macros"].extend(
-        [("CYTHON_LIMITED_API", "1"), ("Py_LIMITED_API", 0x030B0000)]
+        [("CYTHON_LIMITED_API", "1"), ("Py_LIMITED_API", "0x030B0000")]
     )
 
 # define extension
@@ -102,6 +104,7 @@ building_sphinx_documentation = bool(strtobool(os.environ.get("READTHEDOCS", "fa
 libseabreeze.cython_directives = {
     "binding": building_sphinx_documentation,  # fix class method parameters for sphinx
     "embedsignature": not building_sphinx_documentation,  # add function signature to docstring for ipython
+    "language_level": "3str",
 }
 extensions = [libseabreeze]
 
@@ -161,15 +164,6 @@ setup(
         "write_to_template": '__version__ = "{version}"',
         "version_scheme": "post-release",
     },
-    setup_requires=[
-        "setuptools>=18.0",
-        "cython>=0.18",
-        "wheel>=0.31.0",
-        "setuptools_scm",
-        "pkgconfig",
-    ],
-    install_requires=[],
-    extras_require={},
     python_requires=">=3.8",
     cmdclass={"build_ext": sb_build_ext},
     ext_modules=extensions,
