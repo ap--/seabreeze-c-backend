@@ -1,29 +1,53 @@
 [build-system]
 requires = [
     "setuptools>=18.0",
-    "cython>=0.18",
+    "cython @ git+https://github.com/ap--/cython.git@compile-seabreeze#egg=cython",
     "wheel>=0.31.0",
     "setuptools_scm",
     "pkgconfig"  # this should be Linux only, but PEP508 is not supported yet in pyproject.toml
     ]
 
+[project]
+name = "seabreeze_c_backend"
+description = "Seabreeze C Backend. Use together with `seabreeze` package."
+license.file = "LICENSE.md"
+authors = [
+  { name = "Andreas Poehlmann", email = "andreas@poehlmann.io" }
+]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Utilities",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Operating System :: Unix",
+  "Operating System :: MacOS",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy >=1.20.0",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://github.com/ap--/seabreeze-c-backend"
+Source = "https://github.com/ap--/seabreeze-c-backend"
+
+
 [tool.black]
 target-version = ['py38']
-include = '\.pyi?$'
-exclude = '''
-(
-  /(
-      \.eggs
-    | \.git
-    | \.mypy_cache
-    | \.venv
-    | venv.*
-    | build
-    | dist
-    | ci
-  )/
-)
-'''
 
 [tool.isort]
 profile = "black"
