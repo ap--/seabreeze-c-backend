@@ -10,10 +10,9 @@ Email: andreas@poehlmann.io
 """
 import os
 import platform
+import sys
 
-from setuptools import Extension
-from setuptools import find_packages
-from setuptools import setup
+from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
 
@@ -83,10 +82,9 @@ for root, subdirs, fns in os.walk("src/libseabreeze/src"):
 # Add seabreeze include dirs
 compile_opts["include_dirs"].append(os.path.relpath("src/libseabreeze/include"))
 
-if strtobool(os.getenv("NO_CSEABREEZE_ABI3", "false")):
-    pass
-else:
-    # this will only work once more numpy support lands in the limited api
+build_abi3 = not strtobool(os.getenv("NO_CSEABREEZE_ABI3", "false"))
+
+if sys.version_info >= (3, 11) and build_abi3:
     compile_opts["py_limited_api"] = True
     compile_opts["define_macros"].extend(
         [("CYTHON_LIMITED_API", "1"), ("Py_LIMITED_API", "0x030B0000")]
@@ -154,30 +152,10 @@ class sb_build_ext(build_ext):
 
 
 setup(
-    name="seabreeze_c_backend",
-    author="Andreas Poehlmann",
-    author_email="andreas@poehlmann.io",
-    url="https://github.com/ap--/seabreeze-c-backend",
-    license="MIT",
     use_scm_version={
         "write_to": "src/seabreeze_c_backend/_version.py",
-        "write_to_template": '__version__ = "{version}"',
         "version_scheme": "post-release",
     },
-    python_requires=">=3.8",
     cmdclass={"build_ext": sb_build_ext},
     ext_modules=extensions,
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
-    entry_points={},
-    description=("Seabreeze C Backend. Use together with `seabreeze` package."),
-    long_description=open("README.md").read(),
-    long_description_content_type="text/markdown",
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-    ],
 )
