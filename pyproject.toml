@@ -52,7 +52,6 @@ target-version = ['py38']
 [tool.isort]
 profile = "black"
 py_version = "38"
-force_single_line = true
 
 [tool.cibuildwheel]
 build-verbosity = 2
