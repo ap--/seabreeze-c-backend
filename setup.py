@@ -14,6 +14,7 @@ import sys
 
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
+from wheel.bdist_wheel import bdist_wheel
 
 
 def strtobool(val: str) -> int:
@@ -152,11 +153,25 @@ class sb_build_ext(build_ext):
         return super().build_extensions()
 
 
+class bdist_wheel_abi3(bdist_wheel):
+    def get_tag(self):
+        python, abi, plat = super().get_tag()
+
+        if python.startswith("cp") and sys.version_info >= (3, 11):
+            # on CPython, our wheels are abi3 and compatible back to 3.11
+            return "cp311", "abi3", plat
+
+        return python, abi, plat
+
+
 setup(
     use_scm_version={
         "write_to": "src/seabreeze_c_backend/_version.py",
         "version_scheme": "post-release",
     },
-    cmdclass={"build_ext": sb_build_ext},
+    cmdclass={
+        "build_ext": sb_build_ext,
+        "bdist_wheel": bdist_wheel_abi3,
+    },
     ext_modules=extensions,
 )
