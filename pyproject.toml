@@ -7,6 +7,10 @@ requires = [
     "pkgconfig"  # this should be Linux only, but PEP508 is not supported yet in pyproject.toml
     ]
 
+[tool.setuptools_scm]
+write_to = "src/seabreeze_c_backend/_version.py"
+version_scheme = "post-release"
+
 [project]
 name = "seabreeze_c_backend"
 description = "Seabreeze C Backend. Use together with `seabreeze` package."
