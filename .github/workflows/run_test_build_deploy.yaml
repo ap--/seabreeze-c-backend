@@ -38,6 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Setup libusb-dev
         run: |
           sudo apt-get install -y libusb-dev
@@ -56,6 +60,10 @@ jobs:
           python -m pip install -v .
           --config-settings=cmake.define.SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE=ON
           --config-settings=cmake.define.CMAKE_PREFIX_PATH=${{ github.workspace }}/prefix
+      - name: Verify import with installed shared libseabreeze
+        run: >
+          LD_LIBRARY_PATH=${{ github.workspace }}/prefix/lib:$LD_LIBRARY_PATH
+          python -c "import seabreeze_c_backend"
 
   build_sdist:
     name: Build sdist on Linux
