@@ -71,7 +71,11 @@ else()
   # by libusb-compat on top of libusb-1.0
   find_package(PkgConfig QUIET)
   if(PkgConfig_FOUND)
+    # depending on the distribution the compat layer ships libusb.pc or libusb-0.1.pc
     pkg_check_modules(LIBUSB IMPORTED_TARGET libusb)
+    if(NOT LIBUSB_FOUND)
+      pkg_check_modules(LIBUSB IMPORTED_TARGET libusb-0.1)
+    endif()
   endif()
   if(TARGET PkgConfig::LIBUSB)
     target_link_libraries(seabreeze PRIVATE PkgConfig::LIBUSB)

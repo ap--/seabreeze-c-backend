@@ -50,6 +50,7 @@ Source = "https://github.com/ap--/seabreeze-c-backend"
 
 [tool.scikit-build]
 minimum-version = "0.9"
+cmake.version = ">=3.26"
 build-dir = "build/{wheel_tag}"
 wheel.packages = ["src/seabreeze_c_backend"]
 # the extension module is compiled against the stable ABI of python 3.11
