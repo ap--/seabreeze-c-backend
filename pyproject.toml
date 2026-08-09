@@ -84,6 +84,10 @@ test-command = [
 ]
 
 [tool.cibuildwheel.linux]
+# the linux usb backend requires the libusb-0.1 api, which is only packaged
+# for the manylinux2014 image (`libusb-devel` provides `usb.h` there)
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
 before-build = "yum install -y libusb-devel"
 
 [tool.cibuildwheel.windows]
