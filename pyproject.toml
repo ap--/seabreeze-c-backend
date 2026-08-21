@@ -60,12 +60,11 @@ sdist.exclude = ["build", "dist", ".github", ".pixi"]
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.setuptools_scm"
 
-[tool.black]
-target-version = ['py311']
+[tool.ruff]
+target-version = "py311"
 
-[tool.isort]
-profile = "black"
-py_version = "311"
+[tool.ruff.lint]
+extend-select = ["I"]
 
 [tool.cibuildwheel]
 build-verbosity = 2
@@ -86,30 +85,12 @@ before-build = "yum install -y libusb-devel"
 [tool.cibuildwheel.windows]
 config-settings = { "cmake.define.SEABREEZE_C_BACKEND_DISABLE_FH4" = "ON" }
 
-[tool.mypy]
-python_version = "3.11"
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_return_any = true
-warn_unused_configs = true
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
-files = "./src/**/*.py"
-exclude = """
-(?x)(
-   ^build|
-   ^docs|
-   ^tests|
-   setup.py
-)
-"""
+[tool.ty.environment]
+python-version = "3.11"
 
-[[tool.mypy.overrides]]
-module = "seabreeze_c_backend._libseabreeze_wrapper"
-ignore_missing_imports = true
+[tool.ty.src]
+include = ["src/**/*.py"]
+exclude = ["build/**", "docs/**", "tests/**", "setup.py"]
 
 [tool.cython-lint]
 ignore = ['E501']
