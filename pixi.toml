@@ -1,0 +1,53 @@
+[workspace]
+name = "seabreeze-c-backend"
+description = "Seabreeze C Backend. Use together with `seabreeze` package."
+channels = ["conda-forge"]
+platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
+
+[dependencies]
+# the extension module is compiled against the python 3.11 stable ABI
+python = "3.11.*"
+pip = "*"
+numpy = ">=1.20"
+c-compiler = "*"
+cxx-compiler = "*"
+cmake = ">=3.26"
+ninja = "*"
+pkg-config = "*"
+cython = ">=3.1"
+scikit-build-core = ">=0.9"
+setuptools_scm = ">=8"
+python-build = "*"
+pytest = "*"
+pre-commit = "*"
+
+[target.linux.dependencies]
+# the linux usb backend uses the libusb-0.1 api
+libusb-compat = "*"
+
+[tasks]
+# --- libseabreeze shared library ---
+configure-libseabreeze = """
+cmake -S src/libseabreeze -B build/libseabreeze -G Ninja
+  -DCMAKE_BUILD_TYPE=Release
+  -DBUILD_SHARED_LIBS=ON
+  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+"""
+build-libseabreeze = { cmd = "cmake --build build/libseabreeze", depends-on = [
+  "configure-libseabreeze",
+] }
+install-libseabreeze = { cmd = "cmake --install build/libseabreeze", depends-on = [
+  "build-libseabreeze",
+] }
+
+# --- python package ---
+build-wheel = "python -m build --wheel --no-isolation"
+build-sdist = "python -m build --sdist --no-isolation"
+# build the extension module against the installed libseabreeze shared library
+build-wheel-shared = { cmd = """
+python -m build --wheel --no-isolation
+  -C cmake.define.SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE=ON
+""", depends-on = ["install-libseabreeze"] }
+develop = "pip install --no-build-isolation --no-deps -e ."
+test = { cmd = "pytest -v tests", depends-on = ["develop"] }
+lint = "pre-commit run --all-files"

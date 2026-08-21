@@ -1,14 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=18.0",
-    # "cython @ git+https://github.com/ap--/cython.git@compile-seabreeze#egg=cython",
-    "wheel>=0.31.0",
-    "setuptools_scm",
-    "pkgconfig"  # this should be Linux only, but PEP508 is not supported yet in pyproject.toml
-    ]
+    "scikit-build-core>=0.9",
+    "cython>=3.1",
+    "setuptools_scm>=8",
+]
+build-backend = "scikit_build_core.build"
 
 [tool.setuptools_scm]
-write_to = "src/seabreeze_c_backend/_version.py"
 version_scheme = "post-release"
 
 [project]
@@ -23,11 +21,11 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering",
   "Topic :: Utilities",
   "Operating System :: Microsoft :: Windows",
@@ -35,7 +33,7 @@ classifiers = [
   "Operating System :: Unix",
   "Operating System :: MacOS",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = [
     "numpy >=1.20.0",
 ]
@@ -50,47 +48,52 @@ Homepage = "https://github.com/ap--/seabreeze-c-backend"
 Source = "https://github.com/ap--/seabreeze-c-backend"
 
 
-[tool.black]
-target-version = ['py38']
+[tool.scikit-build]
+minimum-version = "0.9"
+cmake.version = ">=3.26"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["src/seabreeze_c_backend"]
+# the extension module is compiled against the stable ABI of python 3.11
+wheel.py-api = "cp311"
+sdist.exclude = ["build", "dist", ".github", ".pixi"]
 
-[tool.isort]
-profile = "black"
-py_version = "38"
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.setuptools_scm"
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+extend-select = ["I"]
 
 [tool.cibuildwheel]
 build-verbosity = 2
+# python >=3.12 is covered by the cp311 abi3 wheel
+build = ["cp311-*"]
 skip = ["*-musllinux_*", "pp*"]
 test-command = [
     "python -c \"import seabreeze_c_backend\"",
 ]
 
 [tool.cibuildwheel.linux]
+# the linux usb backend requires the libusb-0.1 api, which is only packaged
+# for the manylinux2014 image (`libusb-devel` provides `usb.h` there)
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
 before-build = "yum install -y libusb-devel"
 
-[tool.mypy]
-python_version = "3.8"
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_return_any = true
-warn_unused_configs = true
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
-files = "./src/**/*.py"
-exclude = """
-(?x)(
-   ^build|
-   ^docs|
-   ^tests|
-   setup.py
-)
-"""
+[tool.cibuildwheel.windows]
+config-settings = { "cmake.define.SEABREEZE_C_BACKEND_DISABLE_FH4" = "ON" }
 
-[[tool.mypy.overrides]]
-module = "seabreeze_c_backend._libseabreeze_wrapper"
-ignore_missing_imports = true
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.analysis]
+allowed-unresolved-imports = ["seabreeze_c_backend._libseabreeze_wrapper"]
+
+[tool.ty.src]
+include = ["src/**/*.py"]
+exclude = ["build/**", "docs/**", "tests/**", "setup.py"]
 
 [tool.cython-lint]
 ignore = ['E501']

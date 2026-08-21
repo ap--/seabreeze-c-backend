@@ -1,4 +1,5 @@
 """Wrapper for the C-implementation of the seabreeze-library"""
+
 from seabreeze_c_backend._libseabreeze_wrapper import (
     SeaBreezeAcquisitionDelayFeature,
     SeaBreezeAPI,
@@ -36,8 +37,10 @@ from seabreeze_c_backend._libseabreeze_wrapper import (
 )
 
 try:
-    from seabreeze_c_backend._version import __version__ as __version__
-except ImportError:
+    from importlib.metadata import PackageNotFoundError, version
+
+    __version__ = version("seabreeze_c_backend")
+except PackageNotFoundError:
     __version__ = "not-installed"
 
 
