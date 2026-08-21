@@ -13,16 +13,19 @@ permissions:
 
 jobs:
   test:
-    name: Build and test on Linux
+    name: Build and test on Linux (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
       - name: Setup libusb-dev
         run: |
           sudo apt-get install -y libusb-dev
