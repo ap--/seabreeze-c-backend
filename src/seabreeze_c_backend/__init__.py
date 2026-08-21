@@ -1,4 +1,5 @@
 """Wrapper for the C-implementation of the seabreeze-library"""
+
 from seabreeze_c_backend._libseabreeze_wrapper import (
     SeaBreezeAcquisitionDelayFeature,
     SeaBreezeAPI,

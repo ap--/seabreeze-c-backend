@@ -88,6 +88,9 @@ config-settings = { "cmake.define.SEABREEZE_C_BACKEND_DISABLE_FH4" = "ON" }
 [tool.ty.environment]
 python-version = "3.11"
 
+[tool.ty.analysis]
+allowed-unresolved-imports = ["seabreeze_c_backend._libseabreeze_wrapper"]
+
 [tool.ty.src]
 include = ["src/**/*.py"]
 exclude = ["build/**", "docs/**", "tests/**", "setup.py"]

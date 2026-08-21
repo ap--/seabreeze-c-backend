@@ -1,4 +1,5 @@
 """smoke tests for the compiled seabreeze_c_backend extension module"""
+
 import pytest
 
 import seabreeze_c_backend
