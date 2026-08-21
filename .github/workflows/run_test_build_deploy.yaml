@@ -13,15 +13,39 @@ permissions:
 
 jobs:
   test:
-    name: Build and test on Linux (Python ${{ matrix.python-version }})
+    name: Build wheel on Linux (Python 3.11)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          allow-prereleases: true
+      - name: Setup libusb-dev
+        run: |
+          sudo apt-get install -y libusb-dev
+      - name: Install build
+        run: |
+          python -m pip install --upgrade pip build
+      - name: Build wheel
+        run: python -m build --wheel .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: py311-wheel
+          path: ./dist/*.whl
+
+  test_wheel:
+    name: Test wheel on Linux (Python ${{ matrix.python-version }})
+    needs: [test]
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -30,10 +54,14 @@ jobs:
       - name: Setup libusb-dev
         run: |
           sudo apt-get install -y libusb-dev
-      - name: Install the package and pytest
+      - uses: actions/download-artifact@v4
+        with:
+          name: py311-wheel
+          path: ./dist
+      - name: Install wheel and pytest
         run: |
           python -m pip install --upgrade pip pytest
-          python -m pip install -v .
+          python -m pip install ./dist/*.whl
       - name: Run the tests
         run: python -m pytest -v tests
 
@@ -94,7 +122,7 @@ jobs:
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }} - ${{ matrix.arch }}
-    needs: [test]
+    needs: [test_wheel]
     runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 5
