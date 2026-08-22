@@ -21,6 +21,13 @@ pip install .
 
 On linux `libusb` (the `libusb-0.1` api, i.e. `libusb-dev` / `libusb-compat`) is required.
 
+The extension module is **dynamically** linked against `libseabreeze`. By default the vendored sources are
+built as a shared library and installed next to the extension module, so the wheel ships `libseabreeze`.
+The released wheels are built against a separately built `libseabreeze` installation, which is then vendored
+into the wheel by `auditwheel`/`delocate`/`delvewheel`. For conda-forge the shared library and the python
+package are packaged in two separate feedstocks, i.e. the package is built with
+`SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE=ON` and links against the `libseabreeze` package.
+
 ### libseabreeze as a standalone shared library
 
 `libseabreeze` is a self contained CMake project in [`src/libseabreeze`](src/libseabreeze). It can be built and

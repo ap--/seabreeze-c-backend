@@ -71,9 +71,8 @@ build-verbosity = 2
 # python >=3.12 is covered by the cp311 abi3 wheel
 build = ["cp311-*"]
 skip = ["*-musllinux_*", "pp*"]
-test-command = [
-    "python -c \"import seabreeze_c_backend\"",
-]
+test-requires = ["pytest"]
+test-command = "python -m pytest -v {project}/tests"
 
 [tool.cibuildwheel.linux]
 # the linux usb backend requires the libusb-0.1 api, which is only packaged
