@@ -100,6 +100,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libusb-dev
+      # `cmake --build --parallel` without a job count translates to `make -j`,
+      # which compiles all ~450 translation units at once and exhausts the
+      # memory of the runners. CMAKE_BUILD_PARALLEL_LEVEL is only honored if
+      # `--parallel` is not passed on the command line.
+      - name: Limit the build parallelism to the number of available cpus
+        shell: bash
+        run: |
+          jobs="${NUMBER_OF_PROCESSORS:-$(getconf _NPROCESSORS_ONLN)}"
+          echo "CMAKE_BUILD_PARALLEL_LEVEL=${jobs:-4}" >> "$GITHUB_ENV"
       - name: Configure libseabreeze
         run: >
           cmake -S src/libseabreeze -B build/libseabreeze
@@ -109,7 +118,7 @@ jobs:
           ${{ matrix.cmake_extra_args }}
       - name: Build and install libseabreeze
         run: |
-          cmake --build build/libseabreeze --config Release --parallel
+          cmake --build build/libseabreeze --config Release
           cmake --install build/libseabreeze --config Release
       - name: Archive the shared library
         working-directory: prefix
