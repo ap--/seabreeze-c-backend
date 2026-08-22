@@ -32,7 +32,7 @@ jobs:
           path: ./dist
 
   build_libseabreeze:
-    name: Build libseabreeze shared library on ${{ matrix.target }}
+    name: Build libseabreeze on ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -40,27 +40,21 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             target: 'linux-x86_64'
+            manylinux_image: 'quay.io/pypa/manylinux2014_x86_64'
           - os: 'ubuntu-24.04-arm'
             target: 'linux-aarch64'
+            manylinux_image: 'quay.io/pypa/manylinux2014_aarch64'
           - os: 'windows-latest'
             target: 'windows-x86_64'
           - os: 'macOS-latest'
             target: 'macos-arm64'
-            cmake_extra_args: >-
-              -DCMAKE_OSX_ARCHITECTURES=arm64
-              -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
-          - os: 'macOS-latest'
+            cmake_extra_args: '-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0'
+          - os: 'macos-15-intel'
             target: 'macos-x86_64'
-            cmake_extra_args: >-
-              -DCMAKE_OSX_ARCHITECTURES=x86_64
-              -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+            cmake_extra_args: '-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0'
     steps:
       - uses: actions/checkout@v7
-      - name: Setup libusb-dev
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libusb-dev
+
       # `cmake --build --parallel` without a job count translates to `make -j`,
       # which compiles all ~450 translation units at once and exhausts the
       # memory of the runners. CMAKE_BUILD_PARALLEL_LEVEL is only honored if
@@ -70,17 +64,52 @@ jobs:
         run: |
           jobs="${NUMBER_OF_PROCESSORS:-$(getconf _NPROCESSORS_ONLN)}"
           echo "CMAKE_BUILD_PARALLEL_LEVEL=${jobs:-4}" >> "$GITHUB_ENV"
+
+      # the linux shared library has to be built in the same manylinux image
+      # that is used for the wheels to stay abi compatible with them
+      - name: Build and install libseabreeze in the manylinux image
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          docker run --rm \
+            -e CMAKE_BUILD_PARALLEL_LEVEL \
+            -v "${{ github.workspace }}:/io" -w /io \
+            "${{ matrix.manylinux_image }}" \
+            bash -euxc '
+              yum install -y libusb-devel
+              export PATH="/opt/python/cp311-cp311/bin:$PATH"
+              pip install cmake ninja
+              cmake -S src/libseabreeze -B build/libseabreeze -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_SHARED_LIBS=ON \
+                -DCMAKE_INSTALL_LIBDIR=lib \
+                -DCMAKE_INSTALL_PREFIX=/io/prefix
+              cmake --build build/libseabreeze
+              cmake --install build/libseabreeze
+            '
+
       - name: Configure libseabreeze
+        if: ${{ runner.os != 'Linux' }}
         run: >
           cmake -S src/libseabreeze -B build/libseabreeze
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_SHARED_LIBS=ON
+          -DCMAKE_INSTALL_LIBDIR=lib
           -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/prefix
           ${{ matrix.cmake_extra_args }}
       - name: Build and install libseabreeze
+        if: ${{ runner.os != 'Linux' }}
         run: |
           cmake --build build/libseabreeze --config Release
           cmake --install build/libseabreeze --config Release
+
+      # the installation prefix is consumed by the wheel builds
+      - uses: actions/upload-artifact@v7
+        with:
+          # artifact names must be unique for actions/upload-artifact
+          name: libseabreeze-prefix-${{ matrix.target }}
+          path: ./prefix
+
+      # the archive is attached to the github release
       - name: Archive the shared library
         working-directory: prefix
         run: >
@@ -89,12 +118,12 @@ jobs:
           --format=zip -- .
       - uses: actions/upload-artifact@v7
         with:
-          # artifact names must be unique for actions/upload-artifact
-          name: libseabreeze-${{ matrix.target }}
+          name: libseabreeze-archive-${{ matrix.target }}
           path: ./libseabreeze-${{ matrix.target }}.zip
 
   build_wheels:
     name: Build wheels on ${{ matrix.target }}
+    needs: [build_libseabreeze]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -113,7 +142,7 @@ jobs:
           - os: 'macOS-latest'
             target: 'macos-arm64'
             arch: 'arm64'
-          - os: 'macOS-latest'
+          - os: 'macos-15-intel'
             target: 'macos-x86_64'
             arch: 'x86_64'
     steps:
@@ -121,6 +150,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: libseabreeze-prefix-${{ matrix.target }}
+          path: ./prefix
+
+      - name: Locate the libseabreeze prefix
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            prefix="$(pwd -W)/prefix"
+          else
+            prefix="$(pwd)/prefix"
+          fi
+          echo "SEABREEZE_PREFIX=${prefix}" >> "$GITHUB_ENV"
+
+      # the extension module is linked dynamically against the prebuilt
+      # libseabreeze and the shared library is vendored into the wheel by the
+      # repair step (auditwheel/delocate/delvewheel)
       - name: Build wheels
         uses: pypa/cibuildwheel@v4.2.0
         env:
@@ -128,6 +175,16 @@ jobs:
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
           CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           CIBW_ARCHS_WINDOWS: ${{ matrix.arch }}
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.define.SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE=ON
+          CIBW_ENVIRONMENT_LINUX: >-
+            CMAKE_PREFIX_PATH=/project/prefix
+          CIBW_ENVIRONMENT_MACOS: >-
+            CMAKE_PREFIX_PATH=${{ env.SEABREEZE_PREFIX }}
+            MACOSX_DEPLOYMENT_TARGET=${{ matrix.arch == 'arm64' && '11.0' || '13.0' }}
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_PREFIX_PATH=${{ env.SEABREEZE_PREFIX }}
+            PATH="$PATH;${{ env.SEABREEZE_PREFIX }}/bin"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -172,7 +229,7 @@ jobs:
           path: ./assets
       - uses: actions/download-artifact@v8
         with:
-          pattern: libseabreeze-*
+          pattern: libseabreeze-archive-*
           merge-multiple: true
           path: ./assets
       - name: Attach the wheels and shared library archives to the release

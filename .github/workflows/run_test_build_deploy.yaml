@@ -12,62 +12,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Build wheel on Linux (Python 3.11)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.11'
-      - name: Setup libusb-dev
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libusb-dev
-      - name: Install build
-        run: |
-          python -m pip install --upgrade pip build
-      - name: Build wheel
-        run: python -m build --wheel .
-      - uses: actions/upload-artifact@v7
-        with:
-          name: py311-wheel
-          path: ./dist/*.whl
-
-  test_wheel:
-    name: Test wheel on Linux (Python ${{ matrix.python-version }})
-    needs: [test]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
-    steps:
-      - uses: actions/checkout@v7
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
-      - name: Setup libusb-dev
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libusb-dev
-      - uses: actions/download-artifact@v8
-        with:
-          name: py311-wheel
-          path: ./dist
-      - name: Install wheel and pytest
-        run: |
-          python -m pip install --upgrade pip pytest
-          python -m pip install ./dist/*.whl
-      - name: Run the tests
-        run: python -m pytest -v tests
-
   build_libseabreeze:
-    name: Build libseabreeze shared library on ${{ matrix.target }}
+    name: Build libseabreeze on ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -75,31 +21,21 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             target: 'linux-x86_64'
+            manylinux_image: 'quay.io/pypa/manylinux2014_x86_64'
           - os: 'ubuntu-24.04-arm'
             target: 'linux-aarch64'
+            manylinux_image: 'quay.io/pypa/manylinux2014_aarch64'
           - os: 'windows-latest'
             target: 'windows-x86_64'
           - os: 'macOS-latest'
             target: 'macos-arm64'
-            cmake_extra_args: >-
-              -DCMAKE_OSX_ARCHITECTURES=arm64
-              -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
-          - os: 'macOS-latest'
+            cmake_extra_args: '-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0'
+          - os: 'macos-15-intel'
             target: 'macos-x86_64'
-            cmake_extra_args: >-
-              -DCMAKE_OSX_ARCHITECTURES=x86_64
-              -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+            cmake_extra_args: '-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0'
     steps:
       - uses: actions/checkout@v7
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.11'
-      - name: Setup libusb-dev
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libusb-dev
+
       # `cmake --build --parallel` without a job count translates to `make -j`,
       # which compiles all ~450 translation units at once and exhausts the
       # memory of the runners. CMAKE_BUILD_PARALLEL_LEVEL is only honored if
@@ -109,40 +45,166 @@ jobs:
         run: |
           jobs="${NUMBER_OF_PROCESSORS:-$(getconf _NPROCESSORS_ONLN)}"
           echo "CMAKE_BUILD_PARALLEL_LEVEL=${jobs:-4}" >> "$GITHUB_ENV"
+
+      # the linux shared library has to be built in the same manylinux image
+      # that is used for the wheels to stay abi compatible with them
+      - name: Build and install libseabreeze in the manylinux image
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          docker run --rm \
+            -e CMAKE_BUILD_PARALLEL_LEVEL \
+            -v "${{ github.workspace }}:/io" -w /io \
+            "${{ matrix.manylinux_image }}" \
+            bash -euxc '
+              yum install -y libusb-devel
+              export PATH="/opt/python/cp311-cp311/bin:$PATH"
+              pip install cmake ninja
+              cmake -S src/libseabreeze -B build/libseabreeze -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_SHARED_LIBS=ON \
+                -DCMAKE_INSTALL_LIBDIR=lib \
+                -DCMAKE_INSTALL_PREFIX=/io/prefix
+              cmake --build build/libseabreeze
+              cmake --install build/libseabreeze
+            '
+
       - name: Configure libseabreeze
+        if: ${{ runner.os != 'Linux' }}
         run: >
           cmake -S src/libseabreeze -B build/libseabreeze
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_SHARED_LIBS=ON
+          -DCMAKE_INSTALL_LIBDIR=lib
           -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/prefix
           ${{ matrix.cmake_extra_args }}
       - name: Build and install libseabreeze
+        if: ${{ runner.os != 'Linux' }}
         run: |
           cmake --build build/libseabreeze --config Release
           cmake --install build/libseabreeze --config Release
-      - name: Archive the shared library
-        working-directory: prefix
-        run: >
-          cmake -E tar cf
-          ${{ github.workspace }}/libseabreeze-${{ matrix.target }}.zip
-          --format=zip -- .
+
       - uses: actions/upload-artifact@v7
         with:
           # artifact names must be unique for actions/upload-artifact
           name: libseabreeze-${{ matrix.target }}
-          path: ./libseabreeze-${{ matrix.target }}.zip
+          path: ./prefix
 
-      - name: Build the extension module against the installed libseabreeze
-        if: ${{ runner.os == 'Linux' }}
-        run: >
-          python -m pip install -v .
-          --config-settings=cmake.define.SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE=ON
-          --config-settings=cmake.define.CMAKE_PREFIX_PATH=${{ github.workspace }}/prefix
-      - name: Verify import with installed shared libseabreeze
-        if: ${{ runner.os == 'Linux' }}
-        run: >
-          LD_LIBRARY_PATH=${{ github.workspace }}/prefix/lib:$LD_LIBRARY_PATH
-          python -c "import seabreeze_c_backend"
+  build_wheel:
+    name: Test and build wheel on ${{ matrix.target }} (Python 3.11)
+    needs: [build_libseabreeze]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - os: 'ubuntu-latest'
+            target: 'linux-x86_64'
+            arch: 'x86_64'
+          - os: 'ubuntu-24.04-arm'
+            target: 'linux-aarch64'
+            arch: 'aarch64'
+          - os: 'windows-latest'
+            target: 'windows-x86_64'
+            arch: 'AMD64'
+          - os: 'macOS-latest'
+            target: 'macos-arm64'
+            arch: 'arm64'
+          - os: 'macos-15-intel'
+            target: 'macos-x86_64'
+            arch: 'x86_64'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: libseabreeze-${{ matrix.target }}
+          path: ./prefix
+
+      - name: Locate the libseabreeze prefix
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            prefix="$(pwd -W)/prefix"
+          else
+            prefix="$(pwd)/prefix"
+          fi
+          echo "SEABREEZE_PREFIX=${prefix}" >> "$GITHUB_ENV"
+
+      # the extension module is linked dynamically against the prebuilt
+      # libseabreeze, the shared library is then vendored into the wheel by the
+      # repair step (auditwheel/delocate/delvewheel) and the test suite runs
+      # against the repaired wheel
+      - name: Build and test the wheel
+        uses: pypa/cibuildwheel@v4.2.0
+        env:
+          CIBW_BUILD: cp311-*
+          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
+          CIBW_ARCHS_WINDOWS: ${{ matrix.arch }}
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.define.SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE=ON
+          CIBW_ENVIRONMENT_LINUX: >-
+            CMAKE_PREFIX_PATH=/project/prefix
+          CIBW_ENVIRONMENT_MACOS: >-
+            CMAKE_PREFIX_PATH=${{ env.SEABREEZE_PREFIX }}
+            MACOSX_DEPLOYMENT_TARGET=${{ matrix.arch == 'arm64' && '11.0' || '13.0' }}
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_PREFIX_PATH=${{ env.SEABREEZE_PREFIX }}
+            PATH="$PATH;${{ env.SEABREEZE_PREFIX }}/bin"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          # artifact names must be unique for actions/upload-artifact
+          name: wheels-${{ matrix.target }}
+          path: ./wheelhouse/*.whl
+
+  test_wheel:
+    name: Test wheel on ${{ matrix.target }} (Python ${{ matrix.python-version }})
+    needs: [build_wheel]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # the cp311 abi3 wheel is forward compatible with all newer pythons
+        python-version: ['3.12', '3.13', '3.14', '3.15']
+        target:
+          - 'linux-x86_64'
+          - 'linux-aarch64'
+          - 'windows-x86_64'
+          - 'macos-arm64'
+          - 'macos-x86_64'
+        include:
+          - target: 'linux-x86_64'
+            os: 'ubuntu-latest'
+          - target: 'linux-aarch64'
+            os: 'ubuntu-24.04-arm'
+          - target: 'windows-x86_64'
+            os: 'windows-latest'
+          - target: 'macos-arm64'
+            os: 'macOS-latest'
+          - target: 'macos-x86_64'
+            os: 'macos-15-intel'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheels-${{ matrix.target }}
+          path: ./dist
+      - name: Install the python 3.11 wheel and pytest
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install ./dist/*.whl
+      - name: Run the tests
+        run: python -m pytest -v tests
 
   build_sdist:
     name: Build sdist on Linux
@@ -166,46 +228,3 @@ jobs:
         with:
           name: sdist
           path: ./dist
-
-  build_wheels:
-    name: Build wheels on ${{ matrix.target }}
-    needs: [test_wheel]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      max-parallel: 5
-      matrix:
-        include:
-          - os: 'ubuntu-latest'
-            target: 'linux-x86_64'
-            arch: 'x86_64'
-          - os: 'ubuntu-24.04-arm'
-            target: 'linux-aarch64'
-            arch: 'aarch64'
-          - os: 'windows-latest'
-            target: 'windows-x86_64'
-            arch: 'AMD64'
-          - os: 'macOS-latest'
-            target: 'macos-arm64'
-            arch: 'arm64'
-          - os: 'macOS-latest'
-            target: 'macos-x86_64'
-            arch: 'x86_64'
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v4.2.0
-        env:
-          CIBW_BUILD: cp311-*
-          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
-          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
-          CIBW_ARCHS_WINDOWS: ${{ matrix.arch }}
-
-      - uses: actions/upload-artifact@v7
-        with:
-          # artifact names must be unique for actions/upload-artifact
-          name: wheels-${{ matrix.target }}
-          path: ./wheelhouse/*.whl

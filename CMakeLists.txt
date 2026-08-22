@@ -35,14 +35,50 @@ endif()
 
 # --- libseabreeze ------------------------------------------------------------
 if(SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE)
+  # link dynamically against an existing libseabreeze installation. This is
+  # used for the wheel builds (the shared library is vendored into the wheel by
+  # auditwheel/delocate/delvewheel) and for conda-forge, where libseabreeze is
+  # packaged in its own feedstock and must not be vendored.
   find_package(seabreeze REQUIRED)
+  get_target_property(_seabreeze_location seabreeze::seabreeze LOCATION)
+  if(_seabreeze_location)
+    get_filename_component(_seabreeze_libdir "${_seabreeze_location}" DIRECTORY)
+  endif()
 else()
-  # build the vendored libseabreeze sources as a static library and link it
-  # into the extension module
-  set(BUILD_SHARED_LIBS OFF)
+  # build the vendored libseabreeze sources as a shared library, link the
+  # extension module against it and ship it inside the python package
+  set(BUILD_SHARED_LIBS ON)
   set(SEABREEZE_INSTALL OFF)
-  add_subdirectory(src/libseabreeze EXCLUDE_FROM_ALL)
+  add_subdirectory(src/libseabreeze)
+  # the library is loaded from next to the extension module, so the version
+  # suffixes (and the symlinks they require) are not needed
+  set_property(TARGET seabreeze PROPERTY VERSION)
+  set_property(TARGET seabreeze PROPERTY SOVERSION)
+  install(
+    TARGETS seabreeze
+    RUNTIME DESTINATION seabreeze_c_backend
+    LIBRARY DESTINATION seabreeze_c_backend
+  )
 endif()
+
+# the extension module loads libseabreeze from next to itself when it is
+# vendored into the wheel. CMAKE_INSTALL_RPATH_USE_LINK_PATH additionally keeps
+# the location of a system libseabreeze in the rpath, which allows the wheel
+# repair tools to resolve and vendor it.
+if(APPLE)
+  list(APPEND CMAKE_INSTALL_RPATH "@loader_path")
+else()
+  list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+# CMAKE_INSTALL_RPATH_USE_LINK_PATH ignores link directories that are inside
+# the project's source or build tree. The wheel builds install libseabreeze
+# into a prefix inside the checkout, so its location has to be added to the
+# rpath explicitly. auditwheel/delocate discard the rpath entry again when they
+# vendor the shared library into the wheel.
+if(_seabreeze_libdir)
+  list(APPEND CMAKE_INSTALL_RPATH "${_seabreeze_libdir}")
+endif()
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
 # --- cythonize ---------------------------------------------------------------
 set(_pyx "${CMAKE_CURRENT_SOURCE_DIR}/src/seabreeze_c_backend/_libseabreeze_wrapper.pyx")
