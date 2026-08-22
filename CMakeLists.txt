@@ -40,6 +40,10 @@ if(SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE)
   # auditwheel/delocate/delvewheel) and for conda-forge, where libseabreeze is
   # packaged in its own feedstock and must not be vendored.
   find_package(seabreeze REQUIRED)
+  get_target_property(_seabreeze_location seabreeze::seabreeze LOCATION)
+  if(_seabreeze_location)
+    get_filename_component(_seabreeze_libdir "${_seabreeze_location}" DIRECTORY)
+  endif()
 else()
   # build the vendored libseabreeze sources as a shared library, link the
   # extension module against it and ship it inside the python package
@@ -65,6 +69,14 @@ if(APPLE)
   list(APPEND CMAKE_INSTALL_RPATH "@loader_path")
 else()
   list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+# CMAKE_INSTALL_RPATH_USE_LINK_PATH ignores link directories that are inside
+# the project's source or build tree. The wheel builds install libseabreeze
+# into a prefix inside the checkout, so its location has to be added to the
+# rpath explicitly. auditwheel/delocate discard the rpath entry again when they
+# vendor the shared library into the wheel.
+if(_seabreeze_libdir)
+  list(APPEND CMAKE_INSTALL_RPATH "${_seabreeze_libdir}")
 endif()
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
