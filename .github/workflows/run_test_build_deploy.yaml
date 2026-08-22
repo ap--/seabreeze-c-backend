@@ -148,7 +148,6 @@ jobs:
             cmake.define.SEABREEZE_C_BACKEND_USE_SYSTEM_LIBSEABREEZE=ON
           CIBW_ENVIRONMENT_LINUX: >-
             CMAKE_PREFIX_PATH=/project/prefix
-            LD_LIBRARY_PATH=/project/prefix/lib
           CIBW_ENVIRONMENT_MACOS: >-
             CMAKE_PREFIX_PATH=${{ env.SEABREEZE_PREFIX }}
             MACOSX_DEPLOYMENT_TARGET=${{ matrix.arch == 'arm64' && '11.0' || '13.0' }}
