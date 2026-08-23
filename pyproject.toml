@@ -71,8 +71,9 @@ build-verbosity = 2
 # python >=3.12 is covered by the cp311 abi3 wheel
 build = ["cp311-*"]
 skip = ["*-musllinux_*", "pp*"]
-test-requires = ["pytest"]
-test-command = "python -m pytest -v {project}/tests"
+# the wheels are tested for all supported python versions in the `test_wheel`
+# job of the ci workflow, so skip testing during the cibuildwheel run
+test-skip = "*"
 
 [tool.cibuildwheel.linux]
 # the linux usb backend requires the libusb-0.1 api, which is only packaged
@@ -80,11 +81,6 @@ test-command = "python -m pytest -v {project}/tests"
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
 before-build = "yum install -y libusb-devel"
-# numpy dropped its manylinux2014 (glibc 2.17) wheels in 2.3.0, so installing
-# the runtime dependency in the test environment of the manylinux2014 image
-# would build numpy from source. the wheels are tested against a recent numpy
-# on the host runners in the `test_wheel` job of the ci workflow.
-test-requires = ["pytest", "numpy<2.3"]
 
 [tool.cibuildwheel.windows]
 config-settings = { "cmake.define.SEABREEZE_C_BACKEND_DISABLE_FH4" = "ON" }
