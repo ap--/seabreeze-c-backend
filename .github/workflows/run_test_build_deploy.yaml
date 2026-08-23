@@ -168,8 +168,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # the cp311 abi3 wheel is forward compatible with all newer pythons
-        python-version: ['3.12', '3.13', '3.14', '3.15']
+        # the cp311 abi3 wheel is tested on its build python and is forward
+        # compatible with all newer pythons
+        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
         target:
           - 'linux-x86_64'
           - 'linux-aarch64'
