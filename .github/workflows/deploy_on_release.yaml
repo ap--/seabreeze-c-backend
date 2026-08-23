@@ -198,6 +198,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     environment:
       name: release
     steps:
@@ -213,7 +214,8 @@ jobs:
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.pypi_password }}
+          verbose: true
+          skip-existing: true
 
   upload_release_assets:
     name: upload release assets
